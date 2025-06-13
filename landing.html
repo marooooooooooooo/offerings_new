@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Landing Page</title>
+  <style>
+    @font-face {
+      font-family: 'NewEdge666';
+      src: url('fonts/NewEdge666-UltraLightRounded.woff');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    body, html {
+      margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+      background-color: #333333;
+      font-family: 'NewEdge666', Arial, sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* --- Landing Content --- */
+    #landingContent {
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      z-index: 10;
+    }
+
+  #centerText {
+      position: absolute;
+      top: 84%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      color: white;
+      user-select: none;
+      pointer-events: none;
+      text-shadow: 0 0 0px rgba(0,0,0,0.9);
+      z-index: 15;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 15px 20px;
+      font-size: 28px;
+      font-family: 'NewEdge666', Arial, sans-serif !important;
+      border: none;
+      border-radius: 10px;
+      background-color: #555555;
+      color: white;
+      box-sizing: border-box;
+      outline: none;
+      margin-bottom: 30px;
+    }
+
+    input[type="text"]::placeholder {
+      color: #bbb;
+    }
+
+    button#submitBtn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: transparent;
+      font-size: 40px;
+      font-weight: bold;
+      font-family: 'NewEdge666', Arial, sans-serif !important;
+      padding: 20px 20px;
+      user-select: none;
+      border-radius: 8px;
+      transition: background-color 0.3s ease;
+      position: absolute;
+      bottom: -180px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    button#submitBtn:hover {
+      background-color: rgba(255,255,255,0.1);
+    }
+
+    #whiteFadeOverlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 5s ease;
+      z-index: 1000;
+    }
+
+    /* --- Claim Content (initial hidden) --- */
+    #claimContent {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: black;
+      color: white;
+      font-family: 'NewEdge666', Arial, sans-serif;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    #claimContent video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      display: block;
+      position: absolute;
+      z-index: 40;
+    }
+
+    #claimCenterText {
+      position: absolute;
+      top: 80%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      text-align: center;
+      z-index: 55;
+      pointer-events: none;
+    }
+
+    .overlay-button {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      padding: 200px 200px;
+      background: rgba(0, 0, 0, 0); /* dunklerer Hintergrund */
+      border: 0px solid white;          /* weiße Umrandung */
+      border-radius: 0px;
+      color: transparent;
+      cursor: pointer;
+      z-index: 60;
+      user-select: none;
+      transition: background-color 0.3s ease;
+    }
+
+    .overlay-button:hover {
+      background: rgba(0, 0, 0, 0.);
+    }
+  </style>
+  <style>
+    /* Background video for input display */
+    #backgroundVideo {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <video id="backgroundVideo" autoplay loop muted playsinline>
+    <source src="ipad_offer_eingabe.mp4" type="video/mp4" />
+  </video>
+
+  <!-- Landing Content -->
+  <div id="centerText">submit</div>
+  <div id="landingContent" class="container" style="position: relative; z-index: 10;">
+    <input type="text" placeholder="type here" id="inputField" />
+    <button id="submitBtn">Absenden</button>
+  </div>
+  <div id="whiteFadeOverlay"></div>
+
+  <!-- Claim Content -->
+  <div id="claimContent">
+    <video id="video1" autoplay loop muted playsinline>
+      <source src="ipad_claim.mp4" type="video/mp4" />
+    </video>
+
+    <div id="claimCenterText"></div>
+    <button class="overlay-button" id="startBtn">I Claim</button>
+
+    <audio id="claimAudio" src="audio/claim.mp3" loop></audio>
+  </div>
+
+  <script>
+    const ws = new WebSocket('wss://blessed-socket-server-f08da3206592.herokuapp.com:443');
+
+    const landingContent = document.getElementById('landingContent');
+    const centerText = document.getElementById('centerText');
+    const whiteFadeOverlay = document.getElementById('whiteFadeOverlay');
+    const backgroundVideo = document.getElementById('backgroundVideo');
+
+    const claimContent = document.getElementById('claimContent');
+    const video = document.getElementById('video1');
+    const claimAudio = document.getElementById('claimAudio');
+    const startBtn = document.getElementById('startBtn');
+
+    let audioFileName = '';
+
+    // Initialize audioFileName from localStorage if available
+    const storedAudioFile = localStorage.getItem('audioFile');
+    if (storedAudioFile) {
+      audioFileName = storedAudioFile;
+      console.log('Audio-Dateiname aus localStorage geladen:', audioFileName);
+    }
+
+    ws.onopen = () => {
+      console.log('WebSocket verbunden auf Landing');
+    };
+
+    ws.onerror = (e) => {
+      console.error('WebSocket Fehler auf Landing:', e);
+    };
+
+    ws.onmessage = (event) => {
+      console.log('Nachricht empfangen auf Landing:', event.data);
+
+      if (event.data === 'videoEnded') {
+        // Landing ausblenden
+        landingContent.style.display = 'none';
+        centerText.style.display = 'none';
+        whiteFadeOverlay.style.opacity = '0';
+
+        // Claim Content einblenden
+        claimContent.style.display = 'block';
+
+        // Stop any currently playing audio started on submit
+        if (window.currentAudio) {
+          window.currentAudio.pause();
+          window.currentAudio.currentTime = 0;
+        }
+
+        // Play claim audio if ready
+        if (window.claimAudioReady) {
+          claimAudio.play().then(() => {
+            console.log('Claim audio started playing after videoEnded');
+          }).catch(e => {
+            console.warn('Claim audio konnte nicht gestartet werden:', e);
+          });
+          window.claimAudioReady = false;
+        }
+      }
+
+      if (event.data.startsWith('playAudio:')) {
+        const receivedAudioFile = event.data.replace('playAudio:', '');
+        if (receivedAudioFile !== 'claim.mp3') {
+          // Play video audio immediately
+          audioFileName = receivedAudioFile;
+          if (window.currentAudio) {
+            window.currentAudio.pause();
+            window.currentAudio.currentTime = 0;
+            window.currentAudio.onended = null; // Remove previous onended handler
+          }
+          const audio = new Audio('audio/' + audioFileName);
+          audio.loop = false;
+          window.currentAudio = audio;
+          audio.play().then(() => {
+            console.log('Video audio started:', audioFileName);
+            audio.onended = () => {
+              console.log('Video audio ended:', audioFileName);
+            };
+          }).catch(e => {
+            console.warn('Audio konnte nicht gestartet werden:', e);
+          });
+        }
+      }
+    };
+
+    // Landing Submit Button
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      console.log('Submit button clicked');
+      console.log('audioFileName:', audioFileName);
+      const storedZone = localStorage.getItem('selectedZone') || '';
+      console.log('storedZone:', storedZone);
+
+      if (!audioFileName) {
+        alert('Kein Audio-Dateiname empfangen!');
+        return;
+      }
+
+      // Unlock audio context using Web Audio API
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+          console.log('Audio context resumed');
+        }
+      } catch (e) {
+        console.warn('Audio context could not be unlocked:', e);
+      }
+
+      // Play video audio first
+      const videoAudio = new Audio('audio/' + audioFileName);
+      videoAudio.loop = false;
+
+      // Store reference to current audio for stopping later
+      window.currentAudio = videoAudio;
+
+      videoAudio.play().then(() => {
+        console.log('Video audio started:', audioFileName);
+      }).catch(e => {
+        console.warn('Video audio konnte nicht gestartet werden:', e);
+      });
+
+      // Prepare claim audio for playback after video ends
+      claimAudio.muted = false;
+      claimAudio.volume = 1;
+      claimAudio.play().then(() => {
+        claimAudio.pause();
+        claimAudio.currentTime = 0;
+        window.claimAudioReady = true;
+        console.log('Claim audio prepared and paused for later playback');
+      }).catch(e => {
+        console.warn('Claim audio konnte nicht vorbereitet werden:', e);
+        window.claimAudioReady = false;
+      });
+
+      // WebSocket-Befehle an den Screen senden
+      if (!storedZone) {
+        console.warn('Keine Zone im localStorage gefunden, sende keine play-Befehle');
+      } else {
+        console.log('Sending play commands via WebSocket');
+        ws.send('play:' + storedZone);
+        ws.send('playAudio:' + audioFileName);
+      }
+
+      // Starte das White Fade Overlay
+      whiteFadeOverlay.style.opacity = "1";
+
+      // Hide background video when white overlay is shown
+      backgroundVideo.style.opacity = "0";
+      backgroundVideo.pause();
+    });
+
+    // Also show and play background video when white overlay is hidden
+    const observer = new MutationObserver(() => {
+      if (whiteFadeOverlay.style.opacity === '0') {
+        backgroundVideo.style.opacity = "1";
+        backgroundVideo.play();
+      }
+    });
+
+    observer.observe(whiteFadeOverlay, { attributes: true, attributeFilter: ['style'] });
+
+    // Claim Start Button - Weiterleitung zu ipad.html
+    startBtn.addEventListener('click', () => {
+      window.location.href = 'ipad.html';
+    });
+  </script>
+</body>
+</html>
