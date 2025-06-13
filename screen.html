@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Screen Interface</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: rgb(120, 120, 120);
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <video id="screenVideo" autoplay loop>
+    <source src="screensaver.mp4" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
+
+  
+
+  <script>
+    const screenVideo = document.getElementById("screenVideo");
+    const screensaver = "screensaver.mp4";
+
+    const topVideos = ["video_top_1.mp4", "video_top_2.mp4", "video_top_3.mp4", "video_top_4.mp4", "video_top_5.mp4"];
+    const middleVideos = ["video_middle_1.mp4", "video_middle_2.mp4", "video_middle_3.mp4", "video_middle_4.mp4", "video_middle_5.mp4"];
+    const bottomVideos = ["video_bottom_1.mp4", "video_bottom_2.mp4", "video_bottom_3.mp4", "video_bottom_4.mp4", "video_bottom_5.mp4"];
+
+    let selectedZone = null;
+
+    function getRandomFrom(array) {
+      return array[Math.floor(Math.random() * array.length)];
+    }
+
+    function playVideoOnce(src) {
+      screenVideo.loop = false;
+      screenVideo.src = src;
+      screenVideo.load();
+      screenVideo.play();
+
+      screenVideo.onended = () => {
+        ws.send("videoEnded");  // Nachricht an Landing Page senden
+        ws.send("playAudio:claim.mp3"); // Trigger claim audio playback on landing.html
+        screenVideo.src = screensaver;
+        screenVideo.loop = true;
+        screenVideo.load();
+        screenVideo.play();
+      };
+    }
+
+    const ws = new WebSocket('wss://blessed-socket-server-f08da3206592.herokuapp.com:443');
+
+    ws.onopen = () => {
+      console.log('WebSocket verbunden!');
+    };
+
+    ws.onerror = (err) => {
+      console.error('WebSocket Fehler:', err);
+    };
+
+    ws.onmessage = (event) => {
+      const message = event.data;
+      console.log("Nachricht empfangen:", message);
+
+      if (message === "zoneTop" || message === "zoneMiddle" || message === "zoneBottom") {
+        selectedZone = message;
+        console.log("Zone gespeichert:", selectedZone);
+      }
+
+      if (message === "play:dragon") {
+        console.log('play:dragon message received');
+        screenVideo.loop = true;
+        screenVideo.src = "dragon.mp4";
+        screenVideo.load();
+        screenVideo.play();
+        screenVideo.onended = null; // Remove any onended handler
+        return;
+      }
+
+      if (message.startsWith("play:")) {
+        console.log('play message received:', message);
+        // Fix: message is like 'play:zoneTop', so extract zone directly
+        const zone = message.split(":")[1];
+        console.log('Derived zone:', zone);
+        if (zone !== selectedZone) {
+          selectedZone = zone; // sicherheitshalber updaten
+          console.log('selectedZone updated to:', selectedZone);
+        }
+
+        let videoToPlay = null;
+        if (selectedZone === "zoneTop") {
+          videoToPlay = getRandomFrom(topVideos);
+        } else if (selectedZone === "zoneMiddle") {
+          videoToPlay = getRandomFrom(middleVideos);
+        } else if (selectedZone === "zoneBottom") {
+          videoToPlay = getRandomFrom(bottomVideos);
+        } else {
+          console.warn("Keine gültige Zone für play:", selectedZone);
+        }
+
+        if (videoToPlay) {
+          console.log('Playing video:', videoToPlay);
+          playVideoOnce(videoToPlay);
+          // Derive audio file name from video file name
+          const audioFileName = videoToPlay.replace("video", "audio").replace(".mp4", ".mp3");
+          console.log('Sending playAudio message:', audioFileName);
+          ws.send("playAudio:" + audioFileName);
+        }
+      }
+    };
+  </script>
+</body>
+</html>
